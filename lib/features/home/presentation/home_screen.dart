@@ -10,7 +10,7 @@ import '../../scan/application/scan_controller.dart';
 import '../../scan/domain/models.dart';
 import '../../../../shared/utils/formatters.dart';
 
-enum AssetFilter { all, old, duplicates, similar }
+enum AssetFilter { all, old, similar }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, this.thumbnailLoader});
@@ -47,7 +47,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<Uint8List?> _thumbnailFutureFor(String assetId) {
-    return _thumbnailFutures.putIfAbsent(assetId, () => _loadThumbnail(assetId));
+    return _thumbnailFutures.putIfAbsent(
+      assetId,
+      () => _loadThumbnail(assetId),
+    );
   }
 
   List<ScreenshotAsset> _assetsForFilterValue(
@@ -56,11 +59,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ) {
     return switch (filter) {
       AssetFilter.all => assets,
-      AssetFilter.old => assets.where((asset) => asset.isOld).toList(growable: false),
-      AssetFilter.duplicates =>
-        assets.where((asset) => asset.isDuplicateCandidate).toList(growable: false),
+      AssetFilter.old =>
+        assets.where((asset) => asset.isOld).toList(growable: false),
       AssetFilter.similar =>
-        assets.where((asset) => asset.isSimilarCandidate).toList(growable: false),
+        assets
+            .where((asset) => asset.isSimilarCandidate)
+            .toList(growable: false),
     };
   }
 
@@ -69,13 +73,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _applyFilter(AssetFilter filter, List<ScreenshotAsset> allAssets) {
-    final visibleIdsInNewFilter = _assetsForFilterValue(allAssets, filter)
-        .map((asset) => asset.id)
-        .toSet();
+    final visibleIdsInNewFilter = _assetsForFilterValue(
+      allAssets,
+      filter,
+    ).map((asset) => asset.id).toSet();
 
     setState(() {
       _currentFilter = filter;
-      _selectedAssetIds.removeWhere((id) => !visibleIdsInNewFilter.contains(id));
+      _selectedAssetIds.removeWhere(
+        (id) => !visibleIdsInNewFilter.contains(id),
+      );
     });
   }
 
@@ -117,6 +124,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final isCompact = screenWidth < 360 || textScale > 1.1;
+
+        final countMetric = _DeleteMetric(
+          value: '$selectedCount',
+          label: 'screenshots',
+        );
+        final bytesMetric = _DeleteMetric(
+          value: formatBytes(selectedBytes),
+          label: 'freed up',
+        );
+
         return AlertDialog(
           title: Row(
             children: [
@@ -133,7 +153,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Delete screenshots?'),
+              const Expanded(
+                child: Text(
+                  'Delete screenshots?',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           content: Column(
@@ -146,51 +172,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: AppColors.delete.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
+                child: isCompact
+                    ? Column(
                         children: [
-                          Text(
-                            '$selectedCount',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.delete,
-                            ),
+                          countMetric,
+                          const SizedBox(height: 12),
+                          Container(height: 1, color: Colors.black12),
+                          const SizedBox(height: 12),
+                          bytesMetric,
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: countMetric),
+                          Container(
+                            width: 1,
+                            height: 40,
+                            color: Colors.black12,
                           ),
-                          const Text(
-                            'screenshots',
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
-                          ),
+                          Expanded(child: bytesMetric),
                         ],
                       ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: Colors.black12,
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            formatBytes(selectedBytes),
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.delete,
-                            ),
-                          ),
-                          const Text(
-                            'freed up',
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -223,10 +225,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     HapticFeedback.heavyImpact();
 
-    final result =
-        await ref.read(cleanupControllerProvider.notifier).deleteSelected(selectedAssets);
+    final result = await ref
+        .read(cleanupControllerProvider.notifier)
+        .deleteSelected(selectedAssets);
     if (!mounted || result == null) {
       return;
+    }
+
+    final failedIds = result.failedIds.toSet();
+    final deletedIds = selectedAssets
+        .map((asset) => asset.id)
+        .where((id) => !failedIds.contains(id))
+        .toList(growable: false);
+    if (deletedIds.isNotEmpty) {
+      ref
+          .read(scanControllerProvider.notifier)
+          .optimisticallyRemoveAssetsById(deletedIds);
     }
 
     if (result.deletedCount > 0) {
@@ -234,7 +248,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -256,7 +274,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const Icon(Icons.warning_rounded, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Could not delete ${result.failedIds.length} screenshots.'),
+                child: Text(
+                  'Could not delete ${result.failedIds.length} screenshots.',
+                ),
               ),
             ],
           ),
@@ -278,6 +298,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .where(validAssetIds.contains)
         .map((id) => allAssets.firstWhere((asset) => asset.id == id))
         .toList(growable: false);
+
+    if (_currentFilter == AssetFilter.similar &&
+        scanState.hasPermission &&
+        !scanState.isLoading &&
+        !scanState.isSimilarAnalysisInProgress &&
+        !scanState.hasSimilarAnalysis &&
+        scanState.report.assets.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        ref.read(scanControllerProvider.notifier).ensureSimilarAnalysis();
+      });
+    }
 
     if (selectedAssets.length != _selectedAssetIds.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -312,7 +346,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(width: 10),
             const Text(
-              'ScreenClean',
+              'Screenshot Cleaner',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
             ),
           ],
@@ -340,7 +374,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           else
             IconButton(
               tooltip: 'Scan',
-              onPressed: () => ref.read(scanControllerProvider.notifier).rescan(),
+              onPressed: () =>
+                  ref.read(scanControllerProvider.notifier).rescan(),
               icon: const Icon(Icons.refresh_rounded),
             ),
         ],
@@ -369,7 +404,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       color: hasSelection ? AppColors.primary : Colors.black54,
-                      fontWeight: hasSelection ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: hasSelection
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -402,14 +439,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded,
-                          color: AppColors.delete, size: 20),
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.delete,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           scanState.errorMessage!,
-                          style:
-                              const TextStyle(color: AppColors.delete, fontSize: 13),
+                          style: const TextStyle(
+                            color: AppColors.delete,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
@@ -442,6 +484,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: _AssetGrid(
                     filter: _currentFilter,
                     assets: visibleAssets,
+                    isAnalyzingSimilar: scanState.isSimilarAnalysisInProgress,
                     selectedAssetIds: _selectedAssetIds,
                     thumbnailFutureFor: _thumbnailFutureFor,
                     onTap: _toggleAssetSelection,
@@ -453,6 +496,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DeleteMetric extends StatelessWidget {
+  const _DeleteMetric({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppColors.delete,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -518,7 +597,9 @@ class _BottomBar extends StatelessWidget {
                 label: Text(
                   'Delete ${selectedAssets.length} \u00B7 ${formatBytes(selectedBytes)}',
                   style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 15),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             )
@@ -612,10 +693,7 @@ class _SummaryCard extends StatelessWidget {
               key: keyValue,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             const SizedBox(height: 2),
             Text(
@@ -667,15 +745,6 @@ class _FilterBar extends StatelessWidget {
             selected: currentFilter == AssetFilter.old,
             selectedColor: AppColors.orange,
             onSelected: () => onFilterChanged(AssetFilter.old),
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            key: const Key('filter-duplicates'),
-            label: 'Duplicates',
-            count: report.duplicateCount,
-            selected: currentFilter == AssetFilter.duplicates,
-            selectedColor: AppColors.primary,
-            onSelected: () => onFilterChanged(AssetFilter.duplicates),
           ),
           const SizedBox(width: 8),
           _FilterChip(
@@ -766,8 +835,7 @@ class _FilterChip extends StatelessWidget {
           if (count > 0) ...[
             const SizedBox(width: 4),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
                 color: selected
                     ? color.withValues(alpha: 0.2)
@@ -832,10 +900,7 @@ class _PermissionView extends StatelessWidget {
             const SizedBox(height: 20),
             const Text(
               'Storage access needed',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -847,9 +912,7 @@ class _PermissionView extends StatelessWidget {
             FilledButton.icon(
               onPressed: () {
                 final container = ProviderScope.containerOf(context);
-                container
-                    .read(scanControllerProvider.notifier)
-                    .initialize();
+                container.read(scanControllerProvider.notifier).initialize();
               },
               icon: const Icon(Icons.lock_open_rounded, size: 18),
               label: const Text('Grant permission'),
@@ -875,6 +938,7 @@ class _AssetGrid extends StatelessWidget {
   const _AssetGrid({
     required this.filter,
     required this.assets,
+    required this.isAnalyzingSimilar,
     required this.selectedAssetIds,
     required this.thumbnailFutureFor,
     required this.onTap,
@@ -883,6 +947,7 @@ class _AssetGrid extends StatelessWidget {
 
   final AssetFilter filter;
   final List<ScreenshotAsset> assets;
+  final bool isAnalyzingSimilar;
   final Set<String> selectedAssetIds;
   final Future<Uint8List?> Function(String assetId) thumbnailFutureFor;
   final ValueChanged<String> onTap;
@@ -891,6 +956,21 @@ class _AssetGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (assets.isEmpty) {
+      if (filter == AssetFilter.similar && isAnalyzingSimilar) {
+        return const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text(
+                'Analyzing similar screenshots...',
+                style: TextStyle(color: Colors.black54, fontSize: 14),
+              ),
+            ],
+          ),
+        );
+      }
       return _EmptyFilterView(filter: filter);
     }
 
@@ -935,25 +1015,20 @@ class _EmptyFilterView extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, title, subtitle) = switch (filter) {
       AssetFilter.all => (
-          Icons.photo_library_outlined,
-          'No screenshots found',
-          'Take some screenshots and scan again.',
-        ),
+        Icons.photo_library_outlined,
+        'No screenshots found',
+        'Take some screenshots and scan again.',
+      ),
       AssetFilter.old => (
-          Icons.access_time_rounded,
-          'No old screenshots',
-          'All your screenshots are from the last 30 days.',
-        ),
-      AssetFilter.duplicates => (
-          Icons.file_copy_outlined,
-          'No duplicates found',
-          'No exact duplicate screenshots detected.',
-        ),
+        Icons.access_time_rounded,
+        'No old screenshots',
+        'All your screenshots are from the last 30 days.',
+      ),
       AssetFilter.similar => (
-          Icons.compare_rounded,
-          'No similar screenshots',
-          'No visually similar screenshots detected.',
-        ),
+        Icons.compare_rounded,
+        'No similar screenshots',
+        'No visually similar screenshots detected.',
+      ),
     };
 
     return Center(
@@ -1047,13 +1122,14 @@ class _AssetTile extends StatelessWidget {
                         top: Radius.circular(10),
                       ),
                       child: asset.thumbnailData != null
-                          ? Image.memory(asset.thumbnailData!,
-                              fit: BoxFit.cover)
+                          ? Image.memory(
+                              asset.thumbnailData!,
+                              fit: BoxFit.cover,
+                            )
                           : FutureBuilder<Uint8List?>(
                               future: thumbnailFuture,
                               builder: (context, snapshot) {
-                                if (snapshot.hasData &&
-                                    snapshot.data != null) {
+                                if (snapshot.hasData && snapshot.data != null) {
                                   return Image.memory(
                                     snapshot.data!,
                                     fit: BoxFit.cover,
@@ -1081,15 +1157,17 @@ class _AssetTile extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  Colors.black.withValues(alpha: 0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 4,
                             ),
                           ],
                         ),
                         padding: const EdgeInsets.all(4),
-                        child: const Icon(Icons.check_rounded,
-                            size: 14, color: Colors.white),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                 ],
@@ -1107,13 +1185,17 @@ class _AssetTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w600),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const Spacer(),
                       Text(
                         formatDate(asset.createdAt),
                         style: const TextStyle(
-                            fontSize: 10, color: Colors.black45),
+                          fontSize: 10,
+                          color: Colors.black45,
+                        ),
                       ),
                     ],
                   ),
@@ -1143,19 +1225,12 @@ class _TagRow extends StatelessWidget {
     if (asset.isDuplicateCandidate) {
       tags.add(const _Tag(label: 'Dup', color: AppColors.primary));
     }
-    if (asset.isSimilarCandidate) {
-      tags.add(const _Tag(label: 'Sim', color: AppColors.teal));
-    }
 
     if (tags.isEmpty) {
       return const SizedBox(height: 14);
     }
 
-    return Wrap(
-      spacing: 3,
-      runSpacing: 2,
-      children: tags,
-    );
+    return Wrap(spacing: 3, runSpacing: 2, children: tags);
   }
 }
 
@@ -1176,7 +1251,10 @@ class _Tag extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-            fontSize: 9, color: color, fontWeight: FontWeight.w700),
+          fontSize: 9,
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

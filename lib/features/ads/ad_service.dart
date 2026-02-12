@@ -92,10 +92,14 @@ class _AdBannerSlotState extends State<AdBannerSlot> {
       return const SizedBox.shrink();
     }
 
-    return SizedBox(
-      width: _bannerAd!.size.width.toDouble(),
-      height: _bannerAd!.size.height.toDouble(),
-      child: AdWidget(ad: _bannerAd!),
+    return SafeArea(
+      child: Center(
+        child: SizedBox(
+          width: _bannerAd!.size.width.toDouble(),
+          height: _bannerAd!.size.height.toDouble(),
+          child: AdWidget(ad: _bannerAd!),
+        ),
+      ),
     );
   }
 }

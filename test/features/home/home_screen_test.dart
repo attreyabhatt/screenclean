@@ -11,20 +11,22 @@ import 'package:screenclean/features/scan/domain/models.dart';
 import 'package:screenclean/features/scan/domain/repository.dart';
 
 void main() {
-  testWidgets('renders summary and supports bulk selection + delete', (tester) async {
+  testWidgets('renders summary and supports bulk selection + delete', (
+    tester,
+  ) async {
     final fakeRepository = _FakeScreenshotRepository();
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           screenshotRepositoryProvider.overrideWithValue(fakeRepository),
-          ratingPromptPolicyProvider.overrideWithValue(_NeverPromptRatingPolicy()),
+          ratingPromptPolicyProvider.overrideWithValue(
+            _NeverPromptRatingPolicy(),
+          ),
           reviewRequesterProvider.overrideWithValue(_NoopReviewRequester()),
         ],
         child: const MaterialApp(
-          home: HomeScreen(
-            thumbnailLoader: _fakeThumbnailLoader,
-          ),
+          home: HomeScreen(thumbnailLoader: _fakeThumbnailLoader),
         ),
       ),
     );
@@ -50,20 +52,22 @@ void main() {
     expect(fakeRepository.deletedIds.length, 3);
   });
 
-  testWidgets('changing filter drops selection not visible in new filter', (tester) async {
+  testWidgets('changing filter drops selection not visible in new filter', (
+    tester,
+  ) async {
     final fakeRepository = _FakeScreenshotRepository();
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           screenshotRepositoryProvider.overrideWithValue(fakeRepository),
-          ratingPromptPolicyProvider.overrideWithValue(_NeverPromptRatingPolicy()),
+          ratingPromptPolicyProvider.overrideWithValue(
+            _NeverPromptRatingPolicy(),
+          ),
           reviewRequesterProvider.overrideWithValue(_NoopReviewRequester()),
         ],
         child: const MaterialApp(
-          home: HomeScreen(
-            thumbnailLoader: _fakeThumbnailLoader,
-          ),
+          home: HomeScreen(thumbnailLoader: _fakeThumbnailLoader),
         ),
       ),
     );
@@ -77,7 +81,7 @@ void main() {
 
     expect(find.textContaining('Delete 1'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('filter-duplicates')));
+    await tester.tap(find.byKey(const Key('filter-similar')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('delete-selected-button')), findsNothing);
@@ -88,41 +92,41 @@ Future<Uint8List?> _fakeThumbnailLoader(String _) async => null;
 
 class _FakeScreenshotRepository implements ScreenshotRepository {
   _FakeScreenshotRepository()
-      : _assets = [
-          ScreenshotAsset(
-            id: '1',
-            pathId: 'path',
-            name: 'a.png',
-            createdAt: DateTime(2025, 10, 1),
-            sizeBytes: 1200,
-            isOld: true,
-          ),
-          ScreenshotAsset(
-            id: '2',
-            pathId: 'path',
-            name: 'b.png',
-            createdAt: DateTime(2026, 1, 1),
-            sizeBytes: 1400,
-            isOld: false,
-          ).copyWith(duplicateGroupId: 'dup-x'),
-          ScreenshotAsset(
-            id: '3',
-            pathId: 'path',
-            name: 'c.png',
-            createdAt: DateTime(2026, 1, 5),
-            sizeBytes: 1600,
-            isOld: false,
-          ),
-        ];
+    : _assets = [
+        ScreenshotAsset(
+          id: '1',
+          pathId: 'path',
+          name: 'a.png',
+          createdAt: DateTime(2025, 10, 1),
+          sizeBytes: 1200,
+          isOld: true,
+        ),
+        ScreenshotAsset(
+          id: '2',
+          pathId: 'path',
+          name: 'b.png',
+          createdAt: DateTime(2026, 1, 1),
+          sizeBytes: 1400,
+          isOld: false,
+        ).copyWith(duplicateGroupId: 'dup-x'),
+        ScreenshotAsset(
+          id: '3',
+          pathId: 'path',
+          name: 'c.png',
+          createdAt: DateTime(2026, 1, 5),
+          sizeBytes: 1600,
+          isOld: false,
+        ),
+      ];
 
   final List<ScreenshotAsset> _assets;
   List<String> deletedIds = [];
 
   @override
-  Future<CleanupResult> deleteAssets(List<String> ids) async {
-    deletedIds = ids;
+  Future<CleanupResult> deleteAssets(List<ScreenshotAsset> assets) async {
+    deletedIds = assets.map((asset) => asset.id).toList(growable: false);
     return CleanupResult(
-      deletedCount: ids.length,
+      deletedCount: assets.length,
       reclaimedBytes: 4096,
       failedIds: const [],
     );
@@ -150,6 +154,19 @@ class _FakeScreenshotRepository implements ScreenshotRepository {
           .fold<int>(0, (sum, item) => sum + item.sizeBytes),
       assets: _assets,
     );
+  }
+
+  @override
+  Future<List<ScreenshotAsset>> enrichSimilarCandidates(
+    List<ScreenshotAsset> assets,
+  ) async {
+    return assets
+        .map(
+          (asset) => asset.id == '3'
+              ? asset.copyWith(similarGroupId: 'sim-1')
+              : asset.copyWith(clearSimilarGroupId: true),
+        )
+        .toList(growable: false);
   }
 }
 

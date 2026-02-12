@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 
@@ -12,13 +14,13 @@ final reviewRequesterProvider = Provider<ReviewRequester>(
 
 final cleanupControllerProvider =
     StateNotifierProvider<CleanupController, CleanupState>((ref) {
-  return CleanupController(
-    repository: ref.watch(screenshotRepositoryProvider),
-    ratingPromptPolicy: ref.watch(ratingPromptPolicyProvider),
-    reviewRequester: ref.watch(reviewRequesterProvider),
-    onRefreshScan: () => ref.read(scanControllerProvider.notifier).rescan(),
-  );
-});
+      return CleanupController(
+        repository: ref.watch(screenshotRepositoryProvider),
+        ratingPromptPolicy: ref.watch(ratingPromptPolicyProvider),
+        reviewRequester: ref.watch(reviewRequesterProvider),
+        onRefreshScan: () => ref.read(scanControllerProvider.notifier).rescan(),
+      );
+    });
 
 class CleanupState {
   const CleanupState({
@@ -53,34 +55,30 @@ class CleanupController extends StateNotifier<CleanupState> {
     required RatingPromptPolicy ratingPromptPolicy,
     required ReviewRequester reviewRequester,
     required Future<void> Function() onRefreshScan,
-  })  : _repository = repository,
-        _ratingPromptPolicy = ratingPromptPolicy,
-        _reviewRequester = reviewRequester,
-        _onRefreshScan = onRefreshScan,
-        super(CleanupState.initial());
+  }) : _repository = repository,
+       _ratingPromptPolicy = ratingPromptPolicy,
+       _reviewRequester = reviewRequester,
+       _onRefreshScan = onRefreshScan,
+       super(CleanupState.initial());
 
   final ScreenshotRepository _repository;
   final RatingPromptPolicy _ratingPromptPolicy;
   final ReviewRequester _reviewRequester;
   final Future<void> Function() _onRefreshScan;
 
-  Future<CleanupResult?> deleteSelected(List<ScreenshotAsset> selectedAssets) async {
+  Future<CleanupResult?> deleteSelected(
+    List<ScreenshotAsset> selectedAssets,
+  ) async {
     if (selectedAssets.isEmpty || state.isDeleting) {
       return null;
     }
 
     state = state.copyWith(isDeleting: true, clearError: true);
     try {
-      final ids = selectedAssets.map((asset) => asset.id).toList(growable: false);
-      final result = await _repository.deleteAssets(ids);
+      final result = await _repository.deleteAssets(selectedAssets);
 
-      await _handleRatingPrompt(result);
-      await _onRefreshScan();
-
-      state = state.copyWith(
-        isDeleting: false,
-        lastResult: result,
-      );
+      state = state.copyWith(isDeleting: false, lastResult: result);
+      unawaited(_runPostDeleteTasks(result));
       return result;
     } catch (_) {
       state = state.copyWith(
@@ -89,6 +87,16 @@ class CleanupController extends StateNotifier<CleanupState> {
       );
       return null;
     }
+  }
+
+  Future<void> _runPostDeleteTasks(CleanupResult result) async {
+    try {
+      await _handleRatingPrompt(result);
+    } catch (_) {}
+
+    try {
+      await _onRefreshScan();
+    } catch (_) {}
   }
 
   Future<void> _handleRatingPrompt(CleanupResult result) async {

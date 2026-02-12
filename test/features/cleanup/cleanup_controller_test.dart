@@ -38,10 +38,11 @@ void main() {
     ];
 
     final result = await controller.deleteSelected(selected);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
 
     expect(result, isNotNull);
     expect(result!.deletedCount, 2);
-    expect(repository.deletedIds, ['id-1', 'id-2']);
+    expect(repository.deletedAssets.map((asset) => asset.id), ['id-1', 'id-2']);
     expect(refreshCalls, 1);
     expect(reviewer.requested, isTrue);
     expect(ratingPolicy.marked, isTrue);
@@ -49,13 +50,13 @@ void main() {
 }
 
 class _FakeRepository implements ScreenshotRepository {
-  List<String> deletedIds = [];
+  List<ScreenshotAsset> deletedAssets = [];
 
   @override
-  Future<CleanupResult> deleteAssets(List<String> ids) async {
-    deletedIds = ids;
+  Future<CleanupResult> deleteAssets(List<ScreenshotAsset> assets) async {
+    deletedAssets = assets;
     return CleanupResult(
-      deletedCount: ids.length,
+      deletedCount: assets.length,
       reclaimedBytes: 3 * 1024 * 1024,
       failedIds: const [],
     );
@@ -66,6 +67,13 @@ class _FakeRepository implements ScreenshotRepository {
 
   @override
   Future<ScanReport> scanScreenshots() async => const ScanReport.empty();
+
+  @override
+  Future<List<ScreenshotAsset>> enrichSimilarCandidates(
+    List<ScreenshotAsset> assets,
+  ) async {
+    return assets;
+  }
 }
 
 class _FakeRatingPolicy implements RatingPromptPolicy {

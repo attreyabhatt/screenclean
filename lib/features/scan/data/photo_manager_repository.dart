@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:crypto/crypto.dart';
 import 'package:image/image.dart' as img;
 import 'package:photo_manager/photo_manager.dart';
 
@@ -37,9 +34,12 @@ class PhotoManagerScreenshotRepository implements ScreenshotRepository {
       return const ScanReport.empty();
     }
 
-    final allPaths = await PhotoManager.getAssetPathList(type: RequestType.image);
-    final screenshotPaths =
-        allPaths.where((path) => _isScreenshotFolder(path.name)).toList(growable: false);
+    final allPaths = await PhotoManager.getAssetPathList(
+      type: RequestType.image,
+    );
+    final screenshotPaths = allPaths
+        .where((path) => _isScreenshotFolder(path.name))
+        .toList(growable: false);
 
     final now = DateTime.now();
     final assets = <ScreenshotAsset>[];
@@ -49,41 +49,45 @@ class PhotoManagerScreenshotRepository implements ScreenshotRepository {
       assets.addAll(pathAssets);
     }
 
-    final withDuplicateMetadata = await ScanAnalyzer.markDuplicateCandidates(
-      assets,
-      _buildHashForAsset,
-    );
-    final withVisualSimilarityMetadata = await ScanAnalyzer.markSimilarCandidates(
-      withDuplicateMetadata,
-      _buildVisualHashForAsset,
-      hammingDistanceThreshold: _visualSimilarityThreshold,
-    );
-    withVisualSimilarityMetadata.sort(
-      (left, right) => right.createdAt.compareTo(left.createdAt),
-    );
+    assets.sort((left, right) => right.createdAt.compareTo(left.createdAt));
 
-    return ScanAnalyzer.buildReport(withVisualSimilarityMetadata);
+    return ScanAnalyzer.buildReport(assets);
   }
 
   @override
-  Future<CleanupResult> deleteAssets(List<String> ids) async {
-    if (ids.isEmpty) {
+  Future<List<ScreenshotAsset>> enrichSimilarCandidates(
+    List<ScreenshotAsset> assets,
+  ) async {
+    if (assets.length < 2) {
+      return assets;
+    }
+
+    return ScanAnalyzer.markSimilarCandidates(
+      assets,
+      _buildVisualHashForAsset,
+      hammingDistanceThreshold: _visualSimilarityThreshold,
+    );
+  }
+
+  @override
+  Future<CleanupResult> deleteAssets(List<ScreenshotAsset> assets) async {
+    if (assets.isEmpty) {
       return const CleanupResult.empty();
     }
 
-    final sizeById = <String, int>{};
-    for (final id in ids) {
-      final entity = await AssetEntity.fromId(id);
-      if (entity == null) {
-        continue;
-      }
-      sizeById[id] = await _readEntitySize(entity);
-    }
+    final ids = assets.map((asset) => asset.id).toList(growable: false);
+    final sizeById = <String, int>{
+      for (final asset in assets) asset.id: asset.sizeBytes,
+    };
 
     final deletedIds = await PhotoManager.editor.deleteWithIds(ids);
-    final failedIds = ids.where((id) => !deletedIds.contains(id)).toList(growable: false);
-    final reclaimedBytes =
-        deletedIds.fold<int>(0, (sum, id) => sum + (sizeById[id] ?? 0));
+    final failedIds = ids
+        .where((id) => !deletedIds.contains(id))
+        .toList(growable: false);
+    final reclaimedBytes = deletedIds.fold<int>(
+      0,
+      (sum, id) => sum + (sizeById[id] ?? 0),
+    );
 
     return CleanupResult(
       deletedCount: deletedIds.length,
@@ -100,7 +104,10 @@ class PhotoManagerScreenshotRepository implements ScreenshotRepository {
     var page = 0;
 
     while (true) {
-      final entities = await path.getAssetListPaged(page: page, size: _pageSize);
+      final entities = await path.getAssetListPaged(
+        page: page,
+        size: _pageSize,
+      );
       if (entities.isEmpty) {
         break;
       }
@@ -136,36 +143,15 @@ class PhotoManagerScreenshotRepository implements ScreenshotRepository {
     return file.lengthSync();
   }
 
-  Future<String?> _buildHashForAsset(ScreenshotAsset asset) async {
-    final entity = await AssetEntity.fromId(asset.id);
-    if (entity == null) {
-      return null;
-    }
-
-    File? file;
-    try {
-      file = await entity.originFile;
-    } catch (_) {
-      file = null;
-    }
-    file ??= await entity.file;
-
-    if (file == null || !await file.exists()) {
-      return null;
-    }
-
-    final bytes = await file.readAsBytes();
-    return md5.convert(bytes).toString();
-  }
-
   Future<BigInt?> _buildVisualHashForAsset(ScreenshotAsset asset) async {
     final entity = await AssetEntity.fromId(asset.id);
     if (entity == null) {
       return null;
     }
 
-    final thumbnailBytes =
-        await entity.thumbnailDataWithSize(const ThumbnailSize(72, 72));
+    final thumbnailBytes = await entity.thumbnailDataWithSize(
+      const ThumbnailSize(72, 72),
+    );
     if (thumbnailBytes == null || thumbnailBytes.isEmpty) {
       return null;
     }
