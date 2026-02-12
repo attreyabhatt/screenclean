@@ -7,6 +7,8 @@ class AppColors {
   static const Color secondary = Color(0xFF34C759);
   static const Color background = Color(0xFFF2F2F7);
   static const Color delete = Color(0xFFFF3B30);
+  static const Color orange = Color(0xFFFF9500);
+  static const Color teal = Color(0xFF0AA58C);
 }
 
 ThemeData buildAppTheme() {
@@ -30,9 +32,11 @@ ThemeData buildAppTheme() {
     ),
     chipTheme: ChipThemeData(
       selectedColor: AppColors.primary.withValues(alpha: 0.15),
-      side: BorderSide(color: AppColors.primary.withValues(alpha: 0.3)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+      side: BorderSide(color: Colors.grey.withValues(alpha: 0.25)),
+      showCheckmark: false,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     ),
     cardTheme: CardThemeData(
       elevation: 0,
@@ -40,6 +44,12 @@ ThemeData buildAppTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: EdgeInsets.zero,
     ),
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    dialogTheme: DialogThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
   );
 }

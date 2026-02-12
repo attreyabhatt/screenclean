@@ -42,7 +42,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('delete-selected-button')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Delete 3 screenshots'), findsOneWidget);
+    expect(find.text('This action cannot be undone.'), findsOneWidget);
 
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();

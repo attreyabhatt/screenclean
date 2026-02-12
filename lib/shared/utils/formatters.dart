@@ -33,5 +33,10 @@ String formatDate(DateTime dateTime) {
   ];
   final day = dateTime.day.toString().padLeft(2, '0');
   final month = monthShort[dateTime.month - 1];
+  final now = DateTime.now();
+  if (dateTime.year != now.year) {
+    final year = dateTime.year.toString().substring(2);
+    return '$day $month \'$year';
+  }
   return '$day $month';
 }

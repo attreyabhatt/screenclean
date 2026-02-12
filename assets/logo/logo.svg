@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A84FF"/>
+      <stop offset="100%" stop-color="#0066CC"/>
+    </linearGradient>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34C759"/>
+      <stop offset="100%" stop-color="#28A745"/>
+    </linearGradient>
+    <clipPath id="iconClip">
+      <rect width="1024" height="1024" rx="224" ry="224"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="url(#bg)"/>
+
+  <!-- Subtle inner glow -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="white" opacity="0.05"/>
+
+  <!-- Phone/screen shape (white, represents screenshot) -->
+  <rect x="320" y="200" width="384" height="624" rx="40" ry="40"
+        fill="white" opacity="0.95"/>
+
+  <!-- Screen content area (light gray, represents cluttered content) -->
+  <rect x="352" y="260" width="320" height="504" rx="8" ry="8"
+        fill="#E8E8ED"/>
+
+  <!-- Small screenshot thumbnails on the screen (gray placeholders) -->
+  <rect x="370" y="280" width="136" height="100" rx="6" fill="#C7C7CC"/>
+  <rect x="518" y="280" width="136" height="100" rx="6" fill="#C7C7CC"/>
+  <rect x="370" y="392" width="136" height="100" rx="6" fill="#C7C7CC"/>
+  <rect x="518" y="392" width="136" height="100" rx="6" fill="#C7C7CC"/>
+
+  <!-- Green diagonal sweep (cleaning action) -->
+  <g clip-path="url(#iconClip)">
+    <path d="M 180 1100 L 380 1100 L 900 300 L 700 300 Z"
+          fill="url(#sweep)" opacity="0.9"/>
+  </g>
+
+  <!-- Sparkle stars (clean result) -->
+  <!-- Large sparkle -->
+  <g transform="translate(700, 240)" fill="white">
+    <path d="M 0 -40 Q 6 -6 40 0 Q 6 6 0 40 Q -6 6 -40 0 Q -6 -6 0 -40 Z"/>
+  </g>
+  <!-- Medium sparkle -->
+  <g transform="translate(590, 160)" fill="white" opacity="0.8">
+    <path d="M 0 -24 Q 4 -4 24 0 Q 4 4 0 24 Q -4 4 -24 0 Q -4 -4 0 -24 Z"/>
+  </g>
+  <!-- Small sparkle -->
+  <g transform="translate(790, 340)" fill="white" opacity="0.7">
+    <path d="M 0 -16 Q 3 -3 16 0 Q 3 3 0 16 Q -3 3 -16 0 Q -3 -3 0 -16 Z"/>
+  </g>
+</svg>
