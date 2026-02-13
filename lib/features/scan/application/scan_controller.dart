@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/analytics/app_analytics.dart';
 import '../data/photo_manager_repository.dart';
 import '../domain/models.dart';
 import '../domain/repository.dart';
@@ -11,7 +14,10 @@ final screenshotRepositoryProvider = Provider<ScreenshotRepository>(
 
 final scanControllerProvider = StateNotifierProvider<ScanController, ScanState>(
   (ref) {
-    return ScanController(repository: ref.watch(screenshotRepositoryProvider));
+    return ScanController(
+      repository: ref.watch(screenshotRepositoryProvider),
+      analytics: ref.watch(appAnalyticsProvider),
+    );
   },
 );
 
@@ -64,11 +70,15 @@ class ScanState {
 }
 
 class ScanController extends StateNotifier<ScanState> {
-  ScanController({required ScreenshotRepository repository})
-    : _repository = repository,
-      super(ScanState.initial());
+  ScanController({
+    required ScreenshotRepository repository,
+    required AppAnalytics analytics,
+  }) : _repository = repository,
+       _analytics = analytics,
+       super(ScanState.initial());
 
   final ScreenshotRepository _repository;
+  final AppAnalytics _analytics;
   int _scanGeneration = 0;
 
   Future<void> initialize() => _runScan();
@@ -145,6 +155,7 @@ class ScanController extends StateNotifier<ScanState> {
 
   Future<void> _runScan() async {
     final generation = ++_scanGeneration;
+    unawaited(_analytics.logScanStarted());
     state = state.copyWith(
       isLoading: true,
       isSimilarAnalysisInProgress: false,
@@ -158,6 +169,7 @@ class ScanController extends StateNotifier<ScanState> {
       }
 
       if (!hasPermission) {
+        unawaited(_analytics.logScanPermissionDenied());
         state = state.copyWith(
           isLoading: false,
           isSimilarAnalysisInProgress: false,
@@ -180,11 +192,20 @@ class ScanController extends StateNotifier<ScanState> {
         hasPermission: true,
         report: report,
       );
+      unawaited(
+        _analytics.logScanCompleted(
+          totalCount: report.totalCount,
+          totalBytes: report.totalBytes,
+          oldCount: report.oldCount,
+          similarCount: report.similarCount,
+        ),
+      );
     } catch (error) {
       if (generation != _scanGeneration) {
         return;
       }
 
+      unawaited(_analytics.logScanFailed());
       state = state.copyWith(
         isLoading: false,
         isSimilarAnalysisInProgress: false,

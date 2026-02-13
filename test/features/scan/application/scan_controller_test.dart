@@ -3,6 +3,7 @@ import 'package:screenclean/features/scan/application/scan_controller.dart';
 import 'package:screenclean/features/scan/domain/models.dart';
 import 'package:screenclean/features/scan/domain/repository.dart';
 import 'package:screenclean/features/scan/domain/scan_analyzer.dart';
+import 'package:screenclean/shared/analytics/app_analytics.dart';
 
 void main() {
   test('optimisticallyRemoveAssetsById updates report immediately', () async {
@@ -36,7 +37,10 @@ void main() {
     final repository = _FakeRepository(
       report: ScanAnalyzer.buildReport(assets),
     );
-    final controller = ScanController(repository: repository);
+    final controller = ScanController(
+      repository: repository,
+      analytics: const NoopAppAnalytics(),
+    );
 
     await controller.initialize();
     controller.optimisticallyRemoveAssetsById(const ['b']);
@@ -81,7 +85,10 @@ void main() {
             )
             .toList(growable: false),
       );
-      final controller = ScanController(repository: repository);
+      final controller = ScanController(
+        repository: repository,
+        analytics: const NoopAppAnalytics(),
+      );
 
       await controller.initialize();
       expect(controller.state.hasSimilarAnalysis, isFalse);

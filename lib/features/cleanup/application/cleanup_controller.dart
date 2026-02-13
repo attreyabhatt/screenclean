@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 
+import '../../../shared/analytics/app_analytics.dart';
 import '../../rating/rating_policy.dart';
 import '../../scan/application/scan_controller.dart';
 import '../../scan/domain/models.dart';
@@ -16,6 +17,7 @@ final cleanupControllerProvider =
     StateNotifierProvider<CleanupController, CleanupState>((ref) {
       return CleanupController(
         repository: ref.watch(screenshotRepositoryProvider),
+        analytics: ref.watch(appAnalyticsProvider),
         ratingPromptPolicy: ref.watch(ratingPromptPolicyProvider),
         reviewRequester: ref.watch(reviewRequesterProvider),
         onRefreshScan: () => ref.read(scanControllerProvider.notifier).rescan(),
@@ -52,16 +54,19 @@ class CleanupState {
 class CleanupController extends StateNotifier<CleanupState> {
   CleanupController({
     required ScreenshotRepository repository,
+    required AppAnalytics analytics,
     required RatingPromptPolicy ratingPromptPolicy,
     required ReviewRequester reviewRequester,
     required Future<void> Function() onRefreshScan,
   }) : _repository = repository,
+       _analytics = analytics,
        _ratingPromptPolicy = ratingPromptPolicy,
        _reviewRequester = reviewRequester,
        _onRefreshScan = onRefreshScan,
        super(CleanupState.initial());
 
   final ScreenshotRepository _repository;
+  final AppAnalytics _analytics;
   final RatingPromptPolicy _ratingPromptPolicy;
   final ReviewRequester _reviewRequester;
   final Future<void> Function() _onRefreshScan;
@@ -73,9 +78,27 @@ class CleanupController extends StateNotifier<CleanupState> {
       return null;
     }
 
+    final selectedBytes = selectedAssets.fold<int>(
+      0,
+      (sum, asset) => sum + asset.sizeBytes,
+    );
+    unawaited(
+      _analytics.logDeleteConfirmed(
+        selectedCount: selectedAssets.length,
+        selectedBytes: selectedBytes,
+      ),
+    );
+
     state = state.copyWith(isDeleting: true, clearError: true);
     try {
       final result = await _repository.deleteAssets(selectedAssets);
+      unawaited(
+        _analytics.logBytesReclaimed(
+          deletedCount: result.deletedCount,
+          reclaimedBytes: result.reclaimedBytes,
+          failedCount: result.failedIds.length,
+        ),
+      );
 
       state = state.copyWith(isDeleting: false, lastResult: result);
       unawaited(_runPostDeleteTasks(result));

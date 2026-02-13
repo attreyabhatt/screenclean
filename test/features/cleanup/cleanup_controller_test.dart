@@ -3,6 +3,7 @@ import 'package:screenclean/features/cleanup/application/cleanup_controller.dart
 import 'package:screenclean/features/rating/rating_policy.dart';
 import 'package:screenclean/features/scan/domain/models.dart';
 import 'package:screenclean/features/scan/domain/repository.dart';
+import 'package:screenclean/shared/analytics/app_analytics.dart';
 
 void main() {
   test('deleteSelected runs delete, refresh, and rating prompt flow', () async {
@@ -13,6 +14,7 @@ void main() {
 
     final controller = CleanupController(
       repository: repository,
+      analytics: const NoopAppAnalytics(),
       ratingPromptPolicy: ratingPolicy,
       reviewRequester: reviewer,
       onRefreshScan: () async => refreshCalls++,
