@@ -66,10 +66,3 @@ android {
 flutter {
     source = "../.."
 }
-
-// Suppress Java 8 source/target warnings from third-party plugins
-allprojects {
-    tasks.withType<JavaCompile> {
-        options.compilerArgs.add("-Xlint:-options")
-    }
-}
