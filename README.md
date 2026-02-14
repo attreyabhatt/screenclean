@@ -26,13 +26,42 @@ flutter pub get
 flutter run
 ```
 
-## Ads (Production Hook)
+## Ads Configuration
 
-Ads are disabled by default. Enable in production with:
+Ads are disabled by default. To enable ads:
+
+### Option 1: Using Configuration File (Recommended)
+
+1. Copy the example configuration:
+   ```bash
+   cp dart_defines.example.json dart_defines.json
+   ```
+
+2. Edit `dart_defines.json` with your AdMob IDs:
+   ```json
+   {
+     "ENABLE_ADS": "true",
+     "ADMOB_BANNER_UNIT_ID": "your-admob-banner-unit-id"
+   }
+   ```
+
+3. Run with configuration:
+   ```bash
+   flutter run --dart-define-from-file=dart_defines.json
+   ```
+
+4. Or use VS Code launch configurations (already set up in `.vscode/launch.json`)
+
+### Option 2: Command Line
 
 ```bash
 flutter run --dart-define=ENABLE_ADS=true --dart-define=ADMOB_BANNER_UNIT_ID=<your_banner_unit_id>
 ```
+
+### Test Ad Unit IDs
+
+For testing, use Google's test ad units:
+- Banner: `ca-app-pub-3940256099942544/9214589741`
 
 AdMob app ID is provided to Android via `ADMOB_APP_ID` Gradle property / manifest placeholder.
 
