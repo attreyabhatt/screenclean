@@ -28,40 +28,39 @@ flutter run
 
 ## Ads Configuration
 
-Ads are disabled by default. To enable ads:
+**Test ads are enabled by default.** Just run `flutter run` and you'll see test ads.
 
-### Option 1: Using Configuration File (Recommended)
+### For Production Builds
 
-1. Copy the example configuration:
-   ```bash
-   cp dart_defines.example.json dart_defines.json
-   ```
+When you're ready to deploy with your production AdMob ID:
 
-2. Edit `dart_defines.json` with your AdMob IDs:
+1. Edit `dart_defines.json` with your production AdMob ID:
    ```json
    {
      "ENABLE_ADS": "true",
-     "ADMOB_BANNER_UNIT_ID": "your-admob-banner-unit-id"
+     "ADMOB_BANNER_UNIT_ID": "your-production-admob-id"
    }
    ```
 
-3. Run with configuration:
+2. Build with production configuration:
    ```bash
-   flutter run --dart-define-from-file=dart_defines.json
+   flutter build apk --release --dart-define-from-file=dart_defines.json
    ```
 
-4. Or use VS Code launch configurations (already set up in `.vscode/launch.json`)
-
-### Option 2: Command Line
+### To Disable Ads
 
 ```bash
-flutter run --dart-define=ENABLE_ADS=true --dart-define=ADMOB_BANNER_UNIT_ID=<your_banner_unit_id>
+flutter run --dart-define=ENABLE_ADS=false
 ```
 
-### Test Ad Unit IDs
+### Manual Configuration
 
-For testing, use Google's test ad units:
-- Banner: `ca-app-pub-3940256099942544/9214589741`
+You can also override settings via command line:
+```bash
+flutter run --dart-define=ENABLE_ADS=true --dart-define=ADMOB_BANNER_UNIT_ID=<your_id>
+```
+
+**Test Ad Unit ID:** `ca-app-pub-3940256099942544/9214589741` (default)
 
 AdMob app ID is provided to Android via `ADMOB_APP_ID` Gradle property / manifest placeholder.
 

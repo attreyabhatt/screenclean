@@ -15,21 +15,21 @@ import 'features/home/presentation/home_screen.dart';
 import 'features/rating/rating_policy.dart';
 import 'shared/analytics/app_analytics.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  final sharedPreferences = await SharedPreferences.getInstance();
-  final packageInfo = await PackageInfo.fromPlatform();
-  final adService = AdService();
-  final firebaseServices = await _initializeFirebaseServices();
-  final appAnalytics = firebaseServices.analytics == null
-      ? const NoopAppAnalytics()
-      : FirebaseAppAnalytics(firebaseServices.analytics!);
-
-  await adService.initialize();
-
+void main() {
   runZonedGuarded(
-    () {
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      final sharedPreferences = await SharedPreferences.getInstance();
+      final packageInfo = await PackageInfo.fromPlatform();
+      final adService = AdService();
+      final firebaseServices = await _initializeFirebaseServices();
+      final appAnalytics = firebaseServices.analytics == null
+          ? const NoopAppAnalytics()
+          : FirebaseAppAnalytics(firebaseServices.analytics!);
+
+      await adService.initialize();
+
       runApp(
         ProviderScope(
           overrides: [
@@ -43,12 +43,7 @@ Future<void> main() async {
       );
     },
     (error, stackTrace) {
-      final crashlytics = firebaseServices.crashlytics;
-      if (crashlytics != null) {
-        unawaited(crashlytics.recordError(error, stackTrace, fatal: true));
-      } else {
-        debugPrint('Uncaught zone error: $error');
-      }
+      debugPrint('Uncaught zone error: $error\n$stackTrace');
     },
   );
 }
