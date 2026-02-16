@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-const bool kEnableAds = bool.fromEnvironment('ENABLE_ADS', defaultValue: true);
+const bool kEnableAds = bool.fromEnvironment('ENABLE_ADS', defaultValue: false);
 const String kAdmobBannerUnitId = String.fromEnvironment(
   'ADMOB_BANNER_UNIT_ID',
   defaultValue: 'ca-app-pub-3940256099942544/9214589741', // Test ad unit
